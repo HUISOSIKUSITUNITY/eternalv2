@@ -1,1 +1,1986 @@
-game:GetService("Players").LocalPlayer:Kick("wait until im check anticheat status")
+--[[
+    WindUI Example (wip)
+]]
+
+local WindUI
+
+do
+    local ok, result = pcall(function()
+        return require("./src/Init")
+    end)
+    
+    if ok then
+        WindUI = result
+    else 
+        WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+    end
+end
+
+-- For Market 
+local Rods_Module = loadstring(game:HttpGet("https://raw.githubusercontent.com/Y-ForBE-Y/ioasduq089eu3oi13u12o3u/refs/heads/main/My%20Script/InGameModules/Fisch/RodsModule.luau"))()
+local Fish_Module = loadstring(game:HttpGet("https://raw.githubusercontent.com/Y-ForBE-Y/ioasduq089eu3oi13u12o3u/refs/heads/main/My%20Script/InGameModules/Fisch/FishModule/Fish.lua"))()
+local success, Items_Module = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/Y-ForBE-Y/ioasduq089eu3oi13u12o3u/refs/heads/main/My%20Script/InGameModules/Fisch/ItemsModule.luau"))()
+end)
+local Spears_Module = loadstring(game:HttpGet("https://raw.githubusercontent.com/Y-ForBE-Y/ioasduq089eu3oi13u12o3u/refs/heads/main/My%20Script/InGameModules/Fisch/SpearsModule.lua"))()
+
+-- Variables --
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
+
+-- Переменные для сервер хопа
+local PlaceId = game.PlaceId
+local JobId = game.JobId
+
+-- Будем хранить текущие ссылки на персонажа и humanoid
+local LCharacter
+local LHumanoid
+
+-- Переменные для чекбоксов и циклов
+local JumpHeightLoop = nil
+local JumpPowerLoop = nil
+local WalkSpeedLoop = nil
+local TimeLoop = nil
+
+local originalJumpHeight = 7.2
+local originalJumpPower = 50
+local originalWalkSpeed = 16
+
+-- Функция для обновления ссылок на персонажа
+local function updateCharacterReferences(character)
+    LCharacter = character
+    LHumanoid = character:WaitForChild("Humanoid")
+    
+    -- Сохраняем оригинальные значения при появлении персонажа
+    originalJumpHeight = LHumanoid.JumpHeight
+    originalWalkSpeed = LHumanoid.WalkSpeed
+    originalJumpPower = LHumanoid.JumpPower
+end
+
+-- Functions --
+local function SetWalkSpeed(Value)
+    if LHumanoid and LHumanoid.Parent then
+        LHumanoid.WalkSpeed = Value
+    end
+end 
+
+local function SetJumpHeight(Value)
+    if LHumanoid and LHumanoid.Parent then
+        LHumanoid.JumpHeight = Value
+    end
+end
+
+local function SetJumpPower(Value)
+    if LHumanoid and LHumanoid.Parent then
+        LHumanoid.JumpPower = Value
+    end
+end
+
+local function sit_down(Value)
+    if LHumanoid and LHumanoid.Parent then
+        LHumanoid.Sit = Value
+    end
+end
+
+local function Suicide()
+    if LHumanoid and LHumanoid.Parent then
+        LHumanoid.Health = 0
+    end
+end
+
+local function SuicideV2()
+    if LHumanoid and LHumanoid.Parent then
+        LHumanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+        LHumanoid:ChangeState(Enum.HumanoidStateType.Dead)
+    end
+end
+
+-- Функции для сервер хопа
+local function getServers()
+    local servers = {}
+    local success, result = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+    end)
+    
+    if success and result and result.data then
+        for _, server in pairs(result.data) do
+            if server.playing < server.maxPlayers and server.id ~= JobId then
+                table.insert(servers, server)
+            end
+        end
+    end
+    return servers
+end
+
+-- Инициализация текущего персонажа
+if LocalPlayer.Character then
+    updateCharacterReferences(LocalPlayer.Character)
+else
+    LocalPlayer.CharacterAdded:Wait()
+    updateCharacterReferences(LocalPlayer.Character)
+end
+
+local function GetPlayerRod(OnlyEquped)
+    if not OnlyEquped then
+        OnlyEquped = false
+    end
+
+    local isEquipped, Rod
+    local Backpack = game:GetService('Players').LocalPlayer:FindFirstChild("Backpack")
+    local WPlayer = game:GetService('Players').LocalPlayer.Character
+    local LocalPlayer = game:GetService('Players').LocalPlayer
+    local playerName = LocalPlayer.Name
+    local Selected_rod_Name = workspace.PlayerStats[playerName].T[playerName].Stats.rod.Value
+
+    if WPlayer:FindFirstChild(Selected_rod_Name) then
+        Rod = WPlayer:FindFirstChild(Selected_rod_Name)
+        isEquipped = true
+        return Rod, isEquipped
+    elseif Backpack and Backpack:FindFirstChild(Selected_rod_Name) and not OnlyEquped then
+        Rod = Backpack:FindFirstChild(Selected_rod_Name)
+        isEquipped = false
+        return Rod, isEquipped
+    else
+        return nil, false        
+    end
+end
+
+local function teleportBobberVerticalToZone()
+    local workspace = game:GetService("Workspace")
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    
+    local LocalPlayer = game:GetService('Players').LocalPlayer
+    local playerName = LocalPlayer.Name
+    local BobberName = workspace.PlayerStats[playerName].T[playerName].Stats.bobber.Value
+
+    -- Находим поплавок
+    local tool = character:FindFirstChildOfClass("Tool")
+    if not tool then
+        return false
+    end
+
+    local CurrentTool = workspace:WaitForChild(player.Name):FindFirstChild(tool.Name)
+    if not CurrentTool then
+        return false
+    end
+
+    local Bobber = CurrentTool:FindFirstChild("bobber")
+    if not Bobber then
+        return false
+    end
+
+    -- Получаем ВСЕ рыболовные зоны для проверки
+    local fishingZones = {}
+    for _, zone in pairs(workspace:WaitForChild("zones"):WaitForChild("fishing"):GetDescendants()) do
+        if zone:IsA("BasePart") then
+            table.insert(fishingZones, zone)
+        end
+    end
+
+    -- Параметры рейкаста - ИГНОРИРУЕМ ВСЕ КРОМЕ РЫБОЛОВНЫХ ЗОН
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Whitelist
+    raycastParams.FilterDescendantsInstances = fishingZones
+
+    -- Рейкаст вертикально вниз от текущей позиции поплавка
+    local raycastOrigin = Bobber.Position + Vector3.new(0, 5, 0)
+    local raycastDirection = Vector3.new(0, -500, 0)
+    
+    local raycastResult = workspace:Raycast(raycastOrigin, raycastDirection, raycastParams)
+    
+    if not raycastResult then
+        return false
+    end
+
+    local hitPosition = raycastResult.Position
+    local hitInstance = raycastResult.Instance
+
+    -- Проверяем длину лески
+    local ropeConstraint = Bobber:FindFirstChild("RopeConstraint")
+    if ropeConstraint then
+        local verticalDistance = math.abs(Bobber.Position.Y - hitPosition.Y)
+        if ropeConstraint.Length < verticalDistance then
+            print("Длина лески недостаточна для телепортации")
+            return false
+        end
+    end
+
+    -- Телепортируем поплавок на поверхность воды
+    local newPosition = Vector3.new(
+        Bobber.Position.X,
+        hitPosition.Y + 0.5,
+        Bobber.Position.Z
+    )
+    
+    Bobber.Position = newPosition
+
+    if Bobber:FindFirstChild(BobberName) then
+        Bobber:FindFirstChild(BobberName):Destroy()
+    end
+
+    return true
+end
+
+print("Modules Loaded")
+
+WindUI:AddTheme({
+    Name = "Transparent Theme",
+    
+    Accent = Color3.fromHex("#30FF6A"),
+    Dialog = Color3.fromHex("#000000"),
+    Outline = Color3.fromHex("#30FF6A"),
+    Text = Color3.fromHex("#FFFFFF"),
+    Placeholder = Color3.fromHex("#7a7a7a"),
+    Background = Color3.fromHex("#000000"),
+    Button = Color3.fromHex("#1a1a1a"),
+    Icon = Color3.fromHex("#e7ff2f")
+})
+
+WindUI:AddTheme({
+    Name = "White Blue Theme",
+    
+    Accent = Color3.fromHex("#00a8ff"),  -- Голубой акцент
+    Dialog = Color3.fromHex("#ffffff"),  -- Белый фон
+    Outline = Color3.fromHex("#00a8ff"), -- Голубые контуры
+    Text = Color3.fromHex("#2c3e50"),    -- Темно-синий текст
+    Placeholder = Color3.fromHex("#95a5a6"), -- Серый плейсхолдер
+    Background = Color3.fromHex("#ecf0f1"), -- Светло-серый фон
+    Button = Color3.fromHex("#3498db"),  -- Синяя кнопка
+    Icon = Color3.fromHex("#00a8ff")     -- Голубые иконки
+})
+
+WindUI:AddTheme({
+    Name = "Blue White Gradient Theme",
+    
+    Accent = Color3.fromHex("#00a8ff"),  -- Яркий голубой
+    Dialog = Color3.fromHex("#ffffff"),  -- Белый фон
+    Outline = Color3.fromHex("#00a8ff"), -- Голубые контуры
+    Text = Color3.fromHex("#2c3e50"),    -- Темно-синий текст для контраста
+    Placeholder = Color3.fromHex("#7f8c8d"), -- Серый плейсхолдер
+    Background = Color3.fromHex("#e8f4fc"), -- Очень светлый голубой фон
+    Button = Color3.fromHex("#00a8ff"),  -- Голубая кнопка
+    Icon = Color3.fromHex("#00a8ff")     -- Голубые иконки
+})
+
+WindUI:AddTheme({
+    Name = "Black Background Blue White Theme",
+    
+    Accent = Color3.fromHex("#00a8ff"),  -- Голубой акцент
+    Dialog = Color3.fromHex("#1a1a1a"),  -- Темный фон диалогов
+    Outline = Color3.fromHex("#00a8ff"), -- Голубые контуры
+    Text = Color3.fromHex("#ffffff"),    -- Белый текст
+    Placeholder = Color3.fromHex("#7f8c8d"), -- Серый плейсхолдер
+    Background = Color3.fromHex("#000000"), -- Черный фон
+    Button = Color3.fromHex("#00a8ff"),  -- Голубая кнопка
+    Icon = Color3.fromHex("#00a8ff")     -- Голубые иконки
+})
+
+WindUI:AddTheme({
+    Name = "Black Background Blue White Theme",
+    
+    Accent = Color3.fromHex("#00a8ff"),  -- Голубой акцент
+    Dialog = Color3.fromHex("#0a0a0a"),  -- Темный фон диалогов
+    Outline = Color3.fromHex("#00a8ff"), -- Голубые контуры
+    Text = Color3.fromHex("#ffffff"),    -- Белый текст
+    Placeholder = Color3.fromHex("#7f8c8d"), -- Серый плейсхолдер
+    Background = Color3.fromHex("#000000"), -- Черный фон
+    Button = Color3.fromHex("#00a8ff"),  -- Голубая кнопка
+    Icon = Color3.fromHex("#00a8ff"),    -- Голубые иконки
+    
+    -- Дополнительные настройки для табов
+    Tab = {
+        Background = Color3.fromHex("#000000"), -- Черный фон табов
+        Text = Color3.fromHex("#ffffff"),       -- Белый текст табов
+        Accent = Color3.fromHex("#00a8ff")      -- Голубой акцент табов
+    },
+    
+    Section = {
+        Background = Color3.fromHex("#0a0a0a"), -- Темный фон секций
+        Text = Color3.fromHex("#ffffff")        -- Белый текст секций
+    }
+})
+
+-- */  Window  /* --
+local Window = WindUI:CreateWindow({
+    Title = "eternal",
+    Author = "by HUISOSIKUSITUNITY",
+    Folder = "eternal",
+    NewElements = true,
+    HideSearchBar = false,
+    
+    -- Применяем нашу тему
+    Theme = "Black Background Blue White Theme",
+    
+    -- Иконка для окна
+    Icon = "lucide:fish",
+    
+    -- Настройки прозрачности основного окна
+    BackgroundTransparency = 0.2,
+    BackgroundColor = Color3.fromHex("#000000"),
+    BlurBackground = true,
+    BlurIntensity = 0.7,
+    
+    -- Настройки прозрачности для внутренних элементов
+    ElementTransparency = {
+        Main = 0.1,
+        Section = 0.2,
+        Button = 0.1,
+        Toggle = 0.1,
+        Dropdown = 0.2,
+        Slider = 0.2,
+        Input = 0.2,
+        Tab = 0.1  -- Прозрачность табов
+    },
+    
+    OpenButton = {
+        Title = "Open eternal",
+        CornerRadius = UDim.new(1,0),
+        StrokeThickness = 3,
+        Enabled = true,
+        Draggable = true,
+        OnlyMobile = false,
+        BackgroundTransparency = 0.2,
+        
+        -- Бело-голубой градиент
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromHex("#ffffff")),    -- Белый
+            ColorSequenceKeypoint.new(0.5, Color3.fromHex("#87ceeb")),  -- Светлый голубой
+            ColorSequenceKeypoint.new(1, Color3.fromHex("#00a8ff"))     -- Яркий голубой
+        })
+    }
+})
+
+-- */ Using Nebula Icons /* --
+do
+    local NebulaIcons = loadstring(game:HttpGet("https://raw.nebulasoftworks.xyz/nebula-icon-library-loader"))()
+    WindUI.Creator.AddIcons("fluency", NebulaIcons.Fluency)
+    WindUI.Creator.AddIcons("nebula", NebulaIcons.nebulaIcons)
+end
+
+-- */  Main Tab  /* --
+local MainTab = Window:Tab({
+    Title = "Main",
+    Icon = "fluency:home_house"
+})
+
+-- Base Section
+local Base = MainTab:Section({
+    Title = "Base"	
+})
+
+local lastUnequipTime = os.time()
+local EQUIP_COOLDOWN = 3
+local wasEquipped = false
+
+local function UnEquipAllTool()
+    local character = game.Players.LocalPlayer.Character
+    if character then
+        for _, tool in pairs(character:GetChildren()) do
+            if tool:IsA("Tool") then
+                print("Tool найден:", tool.Name)
+                tool.Parent = game:GetService("Players").LocalPlayer.Backpack
+            end
+        end
+    end
+end
+
+local function ProccesAutoEquipRod()
+    local Rod, isEquip = GetPlayerRod()
+    
+    if wasEquipped and not isEquip then
+        lastUnequipTime = os.time()
+        print("Удочка убрана, таймер обновлен")
+    end
+    
+    wasEquipped = isEquip
+    
+    if os.time() - lastUnequipTime < EQUIP_COOLDOWN then
+        return
+    end
+    
+    local character = game.Players.LocalPlayer.Character
+
+    if not character:FindFirstChild("Nuke") then
+        if not character:FindFirstChild(Rod.Name) then
+            local Rod_in_Backpack = game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(Rod.Name)
+            if Rod_in_Backpack then
+                UnEquipAllTool()
+            end
+        end
+
+        if not isEquip then
+            print("Удочка экипирована")
+            Rod.Parent = game:GetService('Players').LocalPlayer.Character
+        end
+    else
+        print("У Игрока в руках нюк свапнуть нельзя")
+    end
+end
+
+-- Чекбокс для AutoEquipRod
+local AutoEquipRodLoop = nil
+local AutoEquipRodToggle = Base:Toggle({
+    Title = "Auto Equip Rod", 
+    Default = false,
+    Callback = function(state)
+        if state == true then
+            AutoEquipRodLoop = RunService.Heartbeat:Connect(function()
+                ProccesAutoEquipRod()
+            end)
+        else
+            if AutoEquipRodLoop then
+                AutoEquipRodLoop:Disconnect()
+            end
+        end
+    end
+})
+
+-- Fishing Section
+local Fishing = MainTab:Section({
+    Title = "Fishing"
+})
+
+local lastCastTime = 0
+local castCooldown = 0.95
+local isCasting = false
+
+local function GetBober()
+    local Rod, isEquip = GetPlayerRod()
+    if not Rod then
+        return nil
+    end
+    
+    local Bober = Rod:FindFirstChild("bobber")
+    if Bober then
+        return Bober
+    else
+        return nil
+    end
+end
+
+local function GetRodValies()
+    local Rod, isEquip = GetPlayerRod(true)
+    if isEquip then
+        return Rod.values
+    else
+        warn("Удочка не экипирована")
+    end
+end
+
+local function RodIsCasted()
+    local values = GetRodValies()
+    if values ~= nil then
+        if values.casted.Value == true then
+            return true
+        else
+            return false
+        end
+    else
+        return true
+    end
+end
+
+local function ProcesAutoCast(InInstantReel)
+    local Rod, isEquip = GetPlayerRod(true)
+
+    if InInstantReel == nil then
+        InInstantReel = false
+    end
+
+    if not InInstantReel then
+        if tick() - lastCastTime < castCooldown or isCasting then
+            return
+        end
+    end
+
+    if isEquip then
+        local Cast = Rod.events.castAsync
+        if not RodIsCasted() then
+            isCasting = true
+            wait(0.2)
+            Cast:InvokeServer(50, 1)
+            lastCastTime = tick()
+            
+            local startTime = tick()
+            local timeout = 1
+            
+            spawn(function()
+                while tick() - startTime < timeout do
+                    if RodIsCasted() then
+                        print("Удочка успешно скастована")
+                        isCasting = false
+                        return
+                    end
+                    wait(0.05)
+                end
+                
+                if Rod then
+                    Rod.events.reset:FireServer()
+                end
+                isCasting = false
+            end)
+        else
+            if RodIsCasted() and not GetBober() then
+                Rod.events.reset:FireServer()
+            end
+            isCasting = false
+        end
+    end
+end
+
+-- Чекбокс для AutoCast
+local AutoCatsLoop = nil
+local AutoCastToggle = Fishing:Toggle({
+    Title = "AutoCast", 
+    Default = false,
+    Callback = function(state)
+        if state == true then
+            AutoCatsLoop = RunService.Heartbeat:Connect(function()
+                ProcesAutoCast()
+            end)
+        else
+            if AutoCatsLoop then
+                AutoCatsLoop:Disconnect()
+            end
+        end
+    end
+})
+
+-- Слайдер дистанции каста
+local CastDistanceSlider = Fishing:Slider({
+    Title = "Cast Distance",
+    Step = 1,
+    Value = {
+        Min = 0,
+        Max = 99,
+        Default = 50,
+    },
+    Callback = function(value) 
+        -- Сохраните значение где-нибудь для использования в ProcesAutoCast
+    end
+})
+
+-- Instant Catch функциональность
+local function EquipRud()
+    local Rod, isEquip = GetPlayerRod()
+    if Rod then
+        if not isEquip then
+            Rod.Parent = game:GetService('Players').LocalPlayer.Character
+        else
+            Rod.Parent = game:GetService('Players').LocalPlayer:FindFirstChild("Backpack")
+        end
+    end
+end
+
+local Reelling = false
+local ReelConnection = nil
+local AditionalDelay = 3
+
+-- Чекбокс для PerfectOnly
+local PerfectOnlyToggle = Fishing:Toggle({
+    Title = "PerfectOnly", 
+    Default = false,
+    Callback = function(state) end
+})
+
+-- Чекбокс для InstantCatch
+local firstRun = true
+local InstantCatchToggle = Fishing:Toggle({
+    Title = "InstantCatch", 
+    Default = false,
+    Callback = function(state)
+        if state == true then
+            ReelConnection = game:GetService("Players").LocalPlayer.PlayerGui.ChildAdded:Connect(function(child)
+                if child.Name == "reel" then
+                    Reelling = true
+                    child:Destroy()
+                    local Rod, isEquip = GetPlayerRod()
+                    if Rod then
+                        task.wait(0.5 + AditionalDelay)
+                        
+                        game:GetService("ReplicatedStorage"):FindFirstChild("events"):FindFirstChild("reelfinished"):FireServer(100, PerfectOnlyToggle.Value)
+                        EquipRud()
+                        EquipRud()
+                        if AutoCastToggle.Value == true then
+                            lastCastTime = tick()
+                            ProcesAutoCast(true)
+                        end
+                    end
+                    
+                    Reelling = false
+                end
+            end)
+        else
+            if ReelConnection then
+                ReelConnection:Disconnect()
+                ReelConnection = nil
+            end
+            Reelling = false
+        end
+    end
+})
+
+-- Чекбокс для InstantBobber
+local InstantBobberLoop = nil
+local InstantBobberToggle = Fishing:Toggle({
+    Title = "InstantBobber", 
+    Default = false,
+    Callback = function(state)
+        if state == true then
+            InstantBobberLoop = RunService.Heartbeat:Connect(function()
+                teleportBobberVerticalToZone()
+            end)
+        else
+            if InstantBobberLoop then
+                InstantBobberLoop:Disconnect()
+                firstRun = false
+            end
+        end
+    end
+})
+
+-- FISCHFRIGHT Section
+local FischFright = MainTab:Section({
+    Title = "FISCHFRIGHT"
+})
+
+FischFright:Button({
+    Title = "Load Trick or Treat Script",
+    Description = 'After loading, a script will start for farming candies in the FISCH FRIGHT event',
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Y-ForBE-Y/ioasduq089eu3oi13u12o3u/refs/heads/main/My%20Script/Scripts/TestScripts/Trick%20of%20treat.lua"))()
+    end
+})
+
+-- */  Player Tab  /* --
+local PlayerTab = Window:Tab({
+    Title = "Player",
+    Icon = "user"
+})
+
+-- Создаем переменные для хранения значений
+local currentWalkSpeed = 16
+local currentJumpHeight = 7.2
+local currentJumpPower = 50
+
+-- Character Settings Section
+local CharacterSection = PlayerTab:Section({
+    Title = "Character Settings"
+})
+
+-- WalkSpeed Toggle
+local WalkSpeedLoop = nil
+local WalkSpeedToggle = CharacterSection:Toggle({
+    Title = "WalkSpeed",
+    Default = false,
+    Callback = function(state)
+        if state == true then
+            WalkSpeedLoop = RunService.Heartbeat:Connect(function()
+                if LHumanoid then
+                    LHumanoid.WalkSpeed = currentWalkSpeed
+                end
+            end)
+        else
+            if WalkSpeedLoop then
+                WalkSpeedLoop:Disconnect()
+                if LHumanoid then
+                    LHumanoid.WalkSpeed = originalWalkSpeed
+                end
+            end
+        end
+    end
+})
+
+-- WalkSpeed Slider
+local WalkSpeedSlider = CharacterSection:Slider({
+    Title = "WalkSpeed Value",
+    Step = 1,
+    Value = {
+        Min = 16,
+        Max = 200,
+        Default = 16,
+    },
+    Callback = function(value)
+        currentWalkSpeed = value
+        if WalkSpeedToggle.Value == true and LHumanoid then
+            LHumanoid.WalkSpeed = value
+        end
+    end
+})
+
+-- JumpHeight Toggle
+local JumpHeightLoop = nil
+local JumpHeightToggle = CharacterSection:Toggle({
+    Title = "JumpHeight", 
+    Default = false,
+    Callback = function(state)
+        if state == true then
+            JumpHeightLoop = RunService.Heartbeat:Connect(function()
+                if LHumanoid then
+                    LHumanoid.JumpHeight = currentJumpHeight
+                end
+            end)
+        else
+            if JumpHeightLoop then
+                JumpHeightLoop:Disconnect()
+                if LHumanoid then
+                    LHumanoid.JumpHeight = originalJumpHeight
+                end
+            end
+        end
+    end
+})
+
+-- JumpHeight Slider
+local JumpHeightSlider = CharacterSection:Slider({
+    Title = "JumpHeight Value",
+    Step = 1,
+    Value = {
+        Min = 7.2,
+        Max = 200,
+        Default = 7.2,
+    },
+    Callback = function(value)
+        currentJumpHeight = value
+        if JumpHeightToggle.Value == true and LHumanoid then
+            LHumanoid.JumpHeight = value
+        end
+    end
+})
+
+-- JumpPower Toggle
+local JumpPowerLoop = nil
+local JumpPowerToggle = CharacterSection:Toggle({
+    Title = "JumpPower",
+    Default = false,
+    Callback = function(state)
+        if state == true then
+            JumpPowerLoop = RunService.Heartbeat:Connect(function()
+                if LHumanoid then
+                    LHumanoid.JumpPower = currentJumpPower
+                end
+            end)
+        else
+            if JumpPowerLoop then
+                JumpPowerLoop:Disconnect()
+                if LHumanoid then
+                    LHumanoid.JumpPower = originalJumpPower
+                end
+            end
+        end
+    end
+})
+
+-- JumpPower Slider
+local JumpPowerSlider = CharacterSection:Slider({
+    Title = "JumpPower Value",
+    Step = 1,
+    Value = {
+        Min = 50,
+        Max = 200,
+        Default = 50,
+    },
+    Callback = function(value)
+        currentJumpPower = value
+        if JumpPowerToggle.Value == true and LHumanoid then
+            LHumanoid.JumpPower = value
+        end
+    end
+})
+
+-- Other Character Functions
+CharacterSection:Button({
+    Title = "Sit Down",
+    Callback = function()
+        sit_down(true)
+    end
+})
+
+CharacterSection:Button({
+    Title = "Stand Up", 
+    Callback = function()
+        sit_down(false)
+    end
+})
+
+CharacterSection:Button({
+    Title = "Suicide",
+    Callback = function()
+        Suicide()
+    end
+})
+
+-- Server Section
+local ServerSection = PlayerTab:Section({
+    Title = "Server"
+})
+
+ServerSection:Button({
+    Title = "Server Hop",
+    Callback = function()
+        local servers = getServers()
+        if #servers > 0 then
+            local randomServer = servers[math.random(1, #servers)]
+            TeleportService:TeleportToPlaceInstance(PlaceId, randomServer.id, LocalPlayer)
+        else
+            print("No servers found")
+        end
+    end
+})
+
+ServerSection:Button({
+    Title = "Rejoin Server", 
+    Callback = function()
+        TeleportService:TeleportToPlaceInstance(PlaceId, JobId, LocalPlayer)
+    end
+})
+
+-- */  Misc Tab  /* --
+local MiscTab = Window:Tab({
+    Title = "Misc",
+    Icon = "settings"
+})
+
+-- Player Section
+local PlayerSection = MiscTab:Section({
+    Title = "Player"
+})
+
+local DisableOxigenSwim = PlayerSection:Toggle({
+    Title = "Disable Oxygen Swim",
+    Default = false,
+    Callback = function(state)
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Resources") then
+            local oxygen = game.Players.LocalPlayer.Character.Resources:FindFirstChild("oxygen")
+            if oxygen then
+                oxygen.Enabled = not state
+            end
+        end
+    end
+})
+
+local DisableOxigenPeaks = PlayerSection:Toggle({
+    Title = "Disable Oxygen Peaks", 
+    Default = false,
+    Callback = function(state)
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Resources") then
+            local oxygenPeaks = game.Players.LocalPlayer.Character.Resources:FindFirstChild("oxygen(peaks)")
+            if oxygenPeaks then
+                oxygenPeaks.Enabled = not state
+            end
+        end
+    end
+})
+
+local DisableOxigenRefactor = PlayerSection:Toggle({
+    Title = "Disable Oxygen Refactor",
+    Default = false,
+    Callback = function(state)
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Resources") then
+            local oxygenRefactor = game.Players.LocalPlayer.Character.Resources:FindFirstChild("oxygenRefactor_WIP")
+            if oxygenRefactor then
+                oxygenRefactor.Enabled = not state
+            end
+        end
+    end
+})
+
+local DisableTemperaturePeaks = PlayerSection:Toggle({
+    Title = "Disable Temperature Peaks",
+    Default = false,
+    Callback = function(state)
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Resources") then
+            local temperature = game.Players.LocalPlayer.Character.Resources:FindFirstChild("temperature")
+            if temperature then
+                temperature.Enabled = not state
+            end
+        end
+    end
+})
+
+local DisableTemperatureHeat = PlayerSection:Toggle({
+    Title = "Disable Temperature Heat",
+    Default = false,
+    Callback = function(state)
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Resources") then
+            local temperatureHeat = game.Players.LocalPlayer.Character.Resources:FindFirstChild("temperature(heat)")
+            if temperatureHeat then
+                temperatureHeat.Enabled = not state
+            end
+        end
+    end
+})
+
+-- Bypass Section
+local BypassSection = MiscTab:Section({
+    Title = "Bypass"
+})
+
+-- Bypass GPS
+local BypassGpsToggle = BypassSection:Toggle({
+    Title = "Bypass GPS",
+    Default = false,
+    Callback = function(state)
+        -- Твой код GPS спуфинга
+        if state then
+            -- Включить GPS спуфинг
+        else
+            -- Выключить GPS спуфинг
+        end
+    end
+})
+
+-- Bypass Radar
+local EnableBaypassRadar = BypassSection:Toggle({
+    Title = "Enable Bypass Radar",
+    Default = false,
+    Callback = function(state)
+        -- Включаем все теги радара
+        for _, v in pairs(game:GetService("CollectionService"):GetTagged("radarTag")) do
+            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+                v.Enabled = state
+            end
+        end
+        for _, v in pairs(game:GetService("CollectionService"):GetTagged("radarTagWithTimer")) do
+            if v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+                v.Enabled = state
+            end
+        end
+    end
+})
+
+-- Custom Radar Distance
+local CustomRadarDistance = BypassSection:Slider({
+    Title = "Custom Radar Distance",
+    Step = 1,
+    Value = {
+        Min = 0,
+        Max = 9999,
+        Default = 9999,
+    },
+    Callback = function(value)
+        -- Сохраняем значение для использования в других функциях
+    end
+})
+
+local BaypassRadarDistance = BypassSection:Toggle({
+    Title = "Bypass Radar Distance",
+    Default = false,
+    Callback = function(state)
+        -- Твой код для обхода дистанции радара
+        if state then
+            -- Включить обход дистанции
+        else
+            -- Выключить обход дистанции
+        end
+    end
+})
+
+local NormolizeRadarBilbordSize = BypassSection:Toggle({
+    Title = "Normalize Radar Billboard Size",
+    Default = false,
+    Callback = function(state)
+        -- Твой код для нормализации размера радара
+        if state then
+            -- Включить нормализацию
+        else
+            -- Выключить нормализацию
+        end
+    end
+})
+
+-- Misc Functions Section
+local MiscFunctionsSection = MiscTab:Section({
+    Title = "Misc Functions"
+})
+
+MiscFunctionsSection:Button({
+    Title = "Discover All Locations",
+    Description = "Discover all game locations",
+    Callback = function()
+        for _, zone in pairs(workspace.zones.player:GetChildren()) do
+            print(zone.Name)
+            game:GetService("ReplicatedStorage").events.discoverlocation:FireServer(zone.Name)
+        end
+    end
+})
+
+MiscFunctionsSection:Button({
+    Title = "Activate All Promocodes",
+    Description = "Activate all available promocodes",
+    Callback = function()
+        local function ActivetePromo() 
+            local argsList = loadstring(game:HttpGet("https://raw.githubusercontent.com/Y-ForBE-Y/ioasduq089eu3oi13u12o3u/refs/heads/main/Fisch/promo"))()
+            for _, args in ipairs(argsList) do
+                game:GetService("ReplicatedStorage"):WaitForChild("events"):WaitForChild("runcode"):FireServer(unpack(args))
+                print(tostring(unpack(args)))
+            end
+        end
+        ActivetePromo() 
+    end
+})
+
+local AntiAFKTeg = MiscFunctionsSection:Toggle({
+    Title = "Anti AFK Tag",
+    Default = false,
+    Callback = function(state)
+        if state then
+            local AntiAFKTegLoop = RunService.Heartbeat:Connect(function()
+                if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("afk") then
+                    game:GetService("ReplicatedStorage").events.afk:FireServer(false)
+                end
+            end)
+        else
+            if AntiAFKTegLoop then
+                AntiAFKTegLoop:Disconnect()
+            end
+        end
+    end
+})
+
+-- GUIs Section
+local GUIsSection = MiscTab:Section({
+    Title = "GUIs"
+})
+
+local guiButtons = {
+    {"Black Market", "Opening BlackMarket GUI"},
+    {"Daily Shop", "Opening Daily shop GUI"}, 
+    {"Challenges", "Opening Challenges GUI"},
+    {"FriendQuests", "Opening FriendQuests GUI"},
+    {"Aquarium", "Opening Aquarium GUI"},
+    {"Spear Crafting", "Opening Spear Craft GUI"},
+    {"Boat PopUP", "Opening Boat PopUP GUI"},
+    {"Starter Pack", "Opening Starter Pack buying GUI"}
+}
+
+local guiPaths = {
+    ["Black Market"] = "hud.safezone.BlackMarket",
+    ["Daily Shop"] = "hud.safezone.DailyShop",
+    ["Challenges"] = "hud.safezone.Challenges", 
+    ["FriendQuests"] = "Friends.FriendQuests",
+    ["Aquarium"] = "hud.safezone.PersonalAquarium",
+    ["Spear Crafting"] = "hud.safezone.SpearCrafting",
+    ["Boat PopUP"] = "hud.safezone.BoatPopup",
+    ["Starter Pack"] = "hud.safezone.starterpack"
+}
+
+for _, guiInfo in ipairs(guiButtons) do
+    local guiName, description = guiInfo[1], guiInfo[2]
+    GUIsSection:Button({
+        Title = guiName,
+        Description = description,
+        Callback = function()
+            local path = guiPaths[guiName]
+            if path then
+                local gui = game.Players.LocalPlayer.PlayerGui
+                for part in string.gmatch(path, "[^.]+") do
+                    gui = gui:FindFirstChild(part)
+                    if not gui then break end
+                end
+                if gui then
+                    gui.Visible = not gui.Visible
+                end
+            end
+        end
+    })
+end
+
+-- */  Teleports Tab  /* --
+local Teleports = Window:Tab({
+    Title = "Teleports",
+    Icon = "map-pin"
+})
+
+-- Таблица с координатами локаций
+local locations = {
+    ["Enchant Altar"] = CFrame.new(1310.7498779296875, -802.427001953125, -84.14505767822266),
+    ["Moosewood"] = CFrame.new(468.4601745605469, 150.6934051513672, 266.5889892578125),
+    ["Roslit"] = CFrame.new(-1510.43310546875, 133.00001525878906, 615.421875),
+    ["Snowcap"] = CFrame.new(2689.964599609375, 152.81431579589844, 2382.687744140625),
+    ["Sunstone"] = CFrame.new(-1059.8160400390625, 138.38648986816406, -1147.626708984375),
+    ["Vertigo"] = CFrame.new(-100.74667358398438, -513.2993774414062, 1053.50244140625),
+    ["Desolate Deep"] = CFrame.new(-1666.7783203125, -214.1810302734375, -2838.974853515625),
+    ["Forsaken Shores"] = CFrame.new(-2530.197509765625, 135.25001525878906, 1558.6446533203125),
+    ["Ancient Isle"] = CFrame.new(6072.98291015625, 195.18016052246094, 296.28118896484375),
+    ["The Depths"] = CFrame.new(954.4327392578125, -711.662109375, 1217.8978271484375),
+    ["Northern Summit"] = CFrame.new(19537.888671875, 132.67010498046875, 5295.79638671875),
+    ["Frigid Cavern"] = CFrame.new(19759.77734375, 415.43707275390625, 5402.3203125),
+    ["Cryogenic Canal"] = CFrame.new(20303.177734375, 706.5989990234375, 5767.0732421875),
+    ["Glacial Grotto"] = CFrame.new(19903.4453125, 1154.770263671875, 5510.076171875),
+    ["Atlantis"] = CFrame.new(-4252.130859375, -603.4038696289062, 1830.807373046875),
+    ["Challenger Deep"] = CFrame.new(-778.5140380859375, -3283.211181640625, -667.571044921875),
+    ["Volcanic Vents"] = CFrame.new(-3407.9072265625, -2260.38232421875, 3856.470947265625),
+    ["Abyssal Zenith"] = CFrame.new(-13502.2431640625, -11050.1884765625, 127.95650482177734),
+    ["Calm Zone"] = CFrame.new(-4234.89208984375, -11201.2109375, 1786.04541015625),
+    ["Castaway Cliffs"] = CFrame.new(645.3287963867188, 160.99998474121094, -1788.6729736328125),
+    ["Crystal Cove"] = CFrame.new(1368.512939453125, -614.0402221679688, 2455.83544921875),
+    ["Terrapin"] = CFrame.new(-224.14453125, 153.77735900878906, 1933.1331787109375),
+    ["Luminescent Cavern"] = CFrame.new(-1008.2897338867188, -336.3400573730469, -4076.955078125),
+    ["Lost Jungles"] = CFrame.new(-2710.125, 150.24826049804688, -2051.906494140625),
+    ["Crimson Cavern"] = CFrame.new(-1031.912109375, -354.1904296875, -4851.046875),
+    ["Scylla"] = CFrame.new(-2348.7109375, -11183.4892578125, 7071.1806640625),
+    ["Kraken Pool"] = CFrame.new(-4301.30712890625, -1001.360107421875, 2004.2734375),
+    ["Mossjaw Hunt"] = CFrame.new(-4909.92333984375, -1790.561279296875, -10162.6962890625),
+    ["Mushgrove Swamp"] = CFrame.new(2433.88232421875, 131.62515258789062, -673.1868896484375),
+    ["Carrot Garden"] = CFrame.new(3705.1044921875, -1127.6787109375, -1092.2685546875),
+}
+
+-- Функция для телепортации к локации
+local function teleportToLocation(locationName)
+    if locationName == nil then
+        return
+    end
+    
+    local locationCFrame = locations[locationName]
+    if locationCFrame then
+        local character = game.Players.LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            character.HumanoidRootPart.CFrame = locationCFrame
+            WindUI:Notify({
+                Title = "Teleport",
+                Content = "Teleported to " .. locationName,
+                Icon = "check"
+            })
+        else
+            WindUI:Notify({
+                Title = "Error",
+                Content = "Character not found!",
+                Icon = "x"
+            })
+        end
+    else
+        WindUI:Notify({
+            Title = "Error",
+            Content = "Location not found!",
+            Icon = "x"
+        })
+    end
+end
+
+-- Создаем дропдаун для выбора локаций
+local locationNames = {}
+for locationName, _ in pairs(locations) do
+    table.insert(locationNames, locationName)
+end
+
+table.sort(locationNames) -- Сортируем по алфавиту
+
+-- Locations Section
+local LocationsSection = Teleports:Section({
+    Title = "Locations"
+})
+
+local locationDropdown = LocationsSection:Dropdown({
+    Title = "Select Location",
+    Values = locationNames,
+    SearchBarEnabled = true,  -- ПОИСК ВКЛЮЧЕН
+    Value = locationNames[1],
+    Callback = function(value)
+        -- Можно добавить автоматическую телепортацию при выборе
+    end
+})
+
+LocationsSection:Button({
+    Title = "Teleport to Selected",
+    Description = "Teleporting you to selected location",
+    Callback = function()
+        teleportToLocation(locationDropdown.Value)
+    end
+})
+
+-- Safe Place Section
+local SafeSection = Teleports:Section({
+    Title = "Safe Place"
+})
+
+local Old_pos
+local inSavePlase = false
+
+SafeSection:Button({
+    Title = "Create Safe Place",
+    Description = "Create a safe zone high in the sky",
+    Callback = function()
+        if not inSavePlase then
+            inSavePlase = true
+            local Players = game:GetService("Players")
+            local LocalPlayer = Players.LocalPlayer
+            local playerName = LocalPlayer.Name
+
+            Old_pos = workspace[playerName].HumanoidRootPart.Position
+
+            local targetCharacter = workspace:WaitForChild(playerName)
+            local HumanoidRootPart = targetCharacter:WaitForChild("HumanoidRootPart")
+
+            local currentRotation = HumanoidRootPart.CFrame.Rotation
+
+            local SafeZone = Instance.new("Part")
+            SafeZone.Size = Vector3.new(30, 1, 30)
+            SafeZone.Position = Vector3.new(math.random(-2000,2000), math.random(50000,90000), math.random(-2000,2000))
+            SafeZone.Anchored = true
+            SafeZone.BrickColor = BrickColor.new("Bright purple")
+            SafeZone.Material = Enum.Material.ForceField
+            SafeZone.Parent = game.Workspace
+            
+            HumanoidRootPart.CFrame = CFrame.new(SafeZone.Position + Vector3.new(0, 5, 0)) * currentRotation
+            
+            WindUI:Notify({
+                Title = "Safe Place",
+                Content = "Created safe place in the sky",
+                Icon = "shield"
+            })
+        end
+    end
+})
+
+SafeSection:Button({
+    Title = "Return",
+    Description = "Return to original position",
+    Callback = function()
+        if Old_pos then
+            local character = workspace[game:GetService("Players").LocalPlayer.Name]
+            local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+            humanoidRootPart.CFrame = CFrame.new(Old_pos) * humanoidRootPart.CFrame.Rotation
+            inSavePlase = false
+            WindUI:Notify({
+                Title = "Return",
+                Content = "Returned to original position",
+                Icon = "arrow-left"
+            })
+        end
+    end
+})
+
+-- Coordinates Section
+local CoordinatesSection = Teleports:Section({
+    Title = "Coordinates"
+})
+
+local CopyXYZType = CoordinatesSection:Dropdown({
+    Title = "Copy XYZ Type", 
+    Values = {"CFrame Script", "Coordinates Only"},
+    SearchBarEnabled = true,  -- ПОИСК ВКЛЮЧЕН
+    Value = "CFrame Script",
+    Callback = function(value) end
+})
+
+CoordinatesSection:Button({
+    Title = "Copy XYZ",
+    Description = "Copy position to clipboard",
+    Callback = function()
+        local XYZ = tostring(game.Players.LocalPlayer.Character.HumanoidRootPart.Position)
+
+        if CopyXYZType.Value == "CFrame Script" then
+            setclipboard("game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(" .. XYZ .. ")")
+        else
+            setclipboard(XYZ)
+        end
+
+        WindUI:Notify({
+            Title = "Copied to clipboard",
+            Content = "XYZ " .. tostring(CopyXYZType.Value) .. " copied!",
+            Icon = "copy"
+        })
+    end
+})
+
+local Cordinats = CoordinatesSection:Input({
+    Title = "Coordinates",
+    Default = "0, 0, 0",
+    Placeholder = "Enter coordinates: x, y, z",
+    Callback = function(value) end
+})
+
+CoordinatesSection:Button({
+    Title = "Teleport to Coordinates",
+    Description = "Format: x, y, z",
+    Callback = function()
+        local XYZ = Cordinats.Value
+        local x, y, z = string.match(XYZ, "([%d%.%-]+),%s*([%d%.%-]+),%s*([%d%.%-]+)")
+        if x and y and z then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(tonumber(x), tonumber(y), tonumber(z))
+            WindUI:Notify({
+                Title = "Teleported",
+                Content = "Teleported to " .. XYZ,
+                Icon = "map-pin"
+            })
+        else
+            WindUI:Notify({
+                Title = "Error",
+                Content = "Invalid coordinates format! Use: x, y, z",
+                Icon = "x"
+            })
+        end
+    end
+})
+
+-- */  Market Tab  /* --
+local MarketTab = Window:Tab({
+    Title = "Market",
+    Icon = "shopping-cart"
+})
+
+-- Rods Section
+local RodsSection = MarketTab:Section({
+    Title = "Rods"
+})
+
+local Rods = {"None"}
+local RodsStats = {}
+
+-- Исправленный код для удочек
+for rodName, rodData in pairs(Rods_Module) do
+    if type(rodData) == "table" then
+        local price = rodData.Price
+        local Luck = rodData.Luck
+        local LureSpeed = rodData.LureSpeed
+        local LineDistance = rodData.LineDistance
+        local Resilience = rodData.Resilience
+        local Control = rodData.Control
+        local Strength = rodData.Strength
+        local Icon = rodData.Icon
+
+        if type(price) ~= "number" or price == math.huge then
+            price = nil
+        end
+
+        if type(Strength) ~= "number" then
+            Strength = "nil"
+        else
+            if Strength == math.huge then
+                Strength = "inf"
+            end
+        end
+
+        if price ~= nil then
+            table.insert(Rods, rodName)
+            RodsStats[rodName] = {
+                Luck = Luck,
+                LureSpeed = 100 - LureSpeed,
+                LineDistance = LineDistance,
+                Resilience = Resilience,
+                Strength = Strength,
+                Control = Control,
+                Price = price,
+                Icon = Icon,
+            }
+        end
+    end
+end
+
+local RodsDropdown = RodsSection:Dropdown({
+    Title = "Select Rod",
+    Values = Rods,
+    SearchBarEnabled = true,  -- ПОИСК ВКЛЮЧЕН
+    Value = "None",
+    Callback = function(Value)
+        updateRodsInfo(Value)
+    end
+})
+
+-- Создаем параграф для отображения информации
+local RodsParagraph = RodsSection:Paragraph({
+    Title = "Rod Information",
+    Content = "Select a rod to see price"
+})
+
+-- Функция для обновления информации о предмете
+local function updateRodsInfo(Value)
+    if Value ~= nil and Value ~= "None" then
+        local infoText = "LureSpeed: " .. RodsStats[Value].LureSpeed .. "%" .. "\n" ..
+                        "Luck: " .. RodsStats[Value].Luck .. "%" .. "\n" ..
+                        "Control: " .. RodsStats[Value].Control .. "\n" ..
+                        "Resilience: " .. RodsStats[Value].Resilience .. "%" .. "\n" ..
+                        "Max Kg: " .. RodsStats[Value].Strength .. "kg" .. "\n" ..
+                        "Price: " .. RodsStats[Value].Price .. "C$"
+
+        RodsParagraph:Set({
+            Title = "Rod: ".. Value,
+            Content = infoText
+        })
+    else
+        RodsParagraph:Set({
+            Title = "Rod Information",
+            Content = "Select a Rod to see details"
+        })
+    end
+end
+
+local function BuyRod(RodName)
+    print("Куплена Удочка: ".. RodName)
+    local purchaseEvent = game:GetService("ReplicatedStorage").events.purchase
+    purchaseEvent:FireServer(RodName, "Rod", nil, 1)
+end
+
+RodsSection:Button({
+    Title = "Buy Rod",
+    Description = "",
+    Callback = function()
+        local selectedRod = RodsDropdown.Value
+        if selectedRod ~= nil and selectedRod ~= "None" then
+            Window:Dialog({
+                Title = "You want to buy it?",
+                Content = "(if you already have this fishing rod, the money will be debited again)",
+                Buttons = {
+                    {
+                        Title = "Confirm",
+                        Callback = function()
+                            BuyRod(selectedRod)
+                        end
+                    },
+                    {
+                        Title = "Cancel",
+                        Callback = function()
+                            print("Cancelled Buy Rod")
+                        end
+                    }
+                }
+            })
+        end
+    end
+})
+
+-- Items Section
+local ItemsSection = MarketTab:Section({
+    Title = "Items"
+})
+
+local Items = {"None"}
+local ItemsPrise = {}
+local ItemsOnlyOne = {}
+
+for itemName, itemData in pairs(Items_Module.Items) do
+    if type(itemData) == "table" then
+        local price = itemData.Price
+        local OnlyOne = itemData.OnlyBuyOne or false
+
+        if type(price) ~= "number" or price == math.huge then
+            price = nil
+        end
+        if price ~= nil and itemName ~= "Witches Ingredient" then
+            table.insert(Items, itemName)
+            ItemsPrise[itemName] = price
+            ItemsOnlyOne[itemName] = OnlyOne
+        end
+    end
+end
+
+local ItemsDropdown = ItemsSection:Dropdown({
+    Title = "Select Item",
+    Values = Items,
+    SearchBarEnabled = true,  -- ПОИСК ВКЛЮЧЕН
+    Value = "None",
+    Callback = function(Value)
+        updateItemInfo()
+    end
+})
+
+local CountInput = ItemsSection:Input({
+    Title = "Count",
+    Default = "1",
+    Placeholder = "Enter count",
+    Callback = function(Value)
+        updateItemInfo()
+    end
+})
+
+local ItemsParagraph = ItemsSection:Paragraph({
+    Title = "Items Information",
+    Content = "Select a Item to see price",
+})
+
+-- Функция для обновления информации о предмете
+local function updateItemInfo()
+    local Value = ItemsDropdown.Value
+    
+    if Value ~= nil and Value ~= "None" then
+        local price = ItemsPrise[Value] or "Unknown"
+        local OnlyOne = ItemsOnlyOne[Value] or false
+
+        local Count = tonumber(CountInput.Value) or 1
+        if type(price) ~= "number" or OnlyOne then
+            Count = 1
+        end
+
+        local TotalPrice
+        if type(price) == "number" then
+            TotalPrice = Count * price
+        else
+            TotalPrice = 0
+        end
+
+        local infoText = "Price Once: " .. tostring(price) .. "C$" .. "\n" ..
+                        "Count: " .. Count .. "pcs" .. "\n" ..
+                        "Total Price: " .. TotalPrice .. "C$" .. "\n" ..
+                        "Buy Only One: " .. tostring(OnlyOne)
+
+        ItemsParagraph:Set({
+            Title = "Item: ".. Value,
+            Content = infoText
+        })
+    else
+        ItemsParagraph:Set({
+            Title = "Item Information",
+            Content = "Select a Item to see details"
+        })
+    end
+end
+
+local function BuyItem(ItemName, Value)
+    if not Value then Value = 1 end
+    
+    print("Куплен Предмет: ".. ItemName)
+    local purchaseEvent = game:GetService("ReplicatedStorage").events.purchase
+    
+    while Value > 0 do
+        local purchaseAmount = math.min(Value, 50)
+        purchaseEvent:FireServer(ItemName, "Item", nil, purchaseAmount)
+        Value = Value - purchaseAmount
+        if Value > 0 then
+            wait(0.1)
+        end
+    end
+end
+
+ItemsSection:Button({
+    Title = "Buy Item",
+    Description = "",
+    Callback = function()
+        local selectedItem = ItemsDropdown.Value
+        if selectedItem ~= nil and selectedItem ~= "None" then
+            local OnlyOne = ItemsOnlyOne[selectedItem] or false
+            local Count = 1
+            if not OnlyOne then
+                Count = tonumber(CountInput.Value) or 1
+            end
+            
+            Window:Dialog({
+                Title = "You want to buy it?",
+                Content = "(if you already have this Item, the money will be debited again)",
+                Buttons = {
+                    {
+                        Title = "Confirm",
+                        Callback = function()
+                            BuyItem(selectedItem, Count)
+                        end
+                    },
+                    {
+                        Title = "Cancel",
+                        Callback = function()
+                            print("Cancelled Buy Item")
+                        end
+                    }
+                }
+            })
+        end
+    end
+})
+
+-- Fishes Section
+local FishesSection = MarketTab:Section({
+    Title = "Fishes"
+})
+
+local Fish = {"None"}
+local FishBuyPrice = {}
+
+-- Вывод всех рыб с учетом BuyMult
+for fishName, fishData in pairs(Fish_Module) do
+    if fishName ~= "Rarities" and fishName ~= "RarityColours" and type(fishData) == "table" then
+        local basePrice = fishData.Price or 0
+        local buyMult = fishData.BuyMult or 1
+        local finalPrice = basePrice * buyMult
+        
+        if fishData.BuyMult and fishName ~= "Bloop Cosmetic Crate" then
+            table.insert(Fish, fishName)
+            FishBuyPrice[fishName] = finalPrice
+        end
+    end
+end
+
+local FishDropdown = FishesSection:Dropdown({
+    Title = "Select Fish",
+    Values = Fish,
+    SearchBarEnabled = true,  -- ПОИСК ВКЛЮЧЕН
+    Value = "None",
+    Callback = function(Value)
+        updateFishesInfo()
+    end
+})
+
+local FishCountInput = FishesSection:Input({
+    Title = "Count",
+    Default = "1",
+    Placeholder = "Enter count",
+    Callback = function(Value)
+        updateFishesInfo()
+    end
+})
+
+local FishParagraph = FishesSection:Paragraph({
+    Title = "Fish Information",
+    Content = "Select a Fish to see price",
+})
+
+-- Функция для обновления информации о предмете
+local function updateFishesInfo()
+    local Value = FishDropdown.Value
+    
+    if Value ~= nil and Value ~= "None" then
+        local price = FishBuyPrice[Value] or "Unknown"
+        local Count = tonumber(FishCountInput.Value) or 1
+        if type(price) ~= "number" then
+            Count = 1
+        end
+
+        local TotalPrice = Count * price
+        local infoText = "Price Once: " .. price .. "C$" .. "\n"..
+                        "Count: " .. Count .. "pcs" .. "\n"..
+                        "Total Price: " .. TotalPrice .. "C$"
+
+        FishParagraph:Set({
+            Title = "Fish: ".. Value,
+            Content = infoText
+        })
+    else
+        FishParagraph:Set({
+            Title = "Fish Information",
+            Content = "Select a Fish to see details"
+        })
+    end
+end
+
+local function BuyFish(FishName, Value)
+    if not Value then
+        Value = 1
+    end
+
+    print("Куплена Рыба: ".. FishName)
+    local purchaseEvent = game:GetService("ReplicatedStorage").events.purchase
+    
+    if Value > 50 then
+        local fullPurchases = math.floor(Value / 50)
+        local remainder = Value % 50
+        
+        for i = 1, fullPurchases do
+            purchaseEvent:FireServer(FishName, "Fish", nil, 50)
+            wait(0.1)
+        end
+        
+        if remainder > 0 then
+            purchaseEvent:FireServer(FishName, "Fish", nil, remainder)
+        end
+    else
+        purchaseEvent:FireServer(FishName, "Fish", nil, Value)
+    end
+end
+
+FishesSection:Button({
+    Title = "Buy Fish",
+    Description = "",
+    Callback = function()
+        local selectedFish = FishDropdown.Value
+        if selectedFish ~= nil and selectedFish ~= "None" then
+            Window:Dialog({
+                Title = "You want to buy it?",
+                Content = "(if you already have this Fish, the money will be debited again)",
+                Buttons = {
+                    {
+                        Title = "Confirm",
+                        Callback = function()
+                            BuyFish(selectedFish, tonumber(FishCountInput.Value) or 1)
+                        end
+                    },
+                    {
+                        Title = "Cancel",
+                        Callback = function()
+                            print("Cancelled Buy Fish")
+                        end
+                    }
+                }
+            })
+        end
+    end
+})
+
+-- Spears Section
+local SpearsSection = MarketTab:Section({
+    Title = "Spears"
+})
+
+local Spear = {"None"}
+local SpearStats = {}
+
+for spearName, spearData in pairs(Spears_Module) do
+    if type(spearData) == "table" then
+        local Price = spearData.Price
+        local Power = spearData.Power
+        local Handling = spearData.Handling
+        local Piercing = spearData.Piercing
+        
+        if type(Price) ~= "number" or Price == -1 then
+            Price = nil
+        end
+
+        if Price ~= nil then
+            table.insert(Spear, spearName)
+            SpearStats[spearName] = {
+                Power = Power,
+                Handling = Handling,
+                Piercing = Piercing,
+                Price = Price
+            }
+        end
+    end
+end
+
+local SpearDropdown = SpearsSection:Dropdown({
+    Title = "Select Spear",
+    Values = Spear,
+    SearchBarEnabled = true,  -- ПОИСК ВКЛЮЧЕН
+    Value = "None",
+    Callback = function(Value)
+        updateSpearsInfo(Value)
+    end
+})
+
+local SpearParagraph = SpearsSection:Paragraph({
+    Title = "Spear Information",
+    Content = "Select a spear to see price"
+})
+
+-- Функция для обновления информации о предмете
+local function updateSpearsInfo(Value)
+    if Value ~= nil and Value ~= "None" then
+        local infoText = "Power: " .. SpearStats[Value].Power .. "\n" ..
+                        "Handling: " .. SpearStats[Value].Handling .. "\n" ..
+                        "Piercing: " .. SpearStats[Value].Piercing .. "\n" ..
+                        "Price: " .. SpearStats[Value].Price
+
+        SpearParagraph:Set({
+            Title = "Spear: ".. Value,
+            Content = infoText
+        })
+    else
+        SpearParagraph:Set({
+            Title = "Spear Information",
+            Content = "Select a spear to see details"
+        })
+    end
+end
+
+local function BuySpear(SpearName)
+    print("Куплено Копьё: ".. SpearName)
+    local purchaseEvent = game:GetService("ReplicatedStorage").events.purchase
+    purchaseEvent:FireServer(SpearName, "Spear", nil, 1)
+end
+
+SpearsSection:Button({
+    Title = "Buy Spear",
+    Description = "",
+    Callback = function()
+        local selectedSpear = SpearDropdown.Value
+        if selectedSpear ~= nil and selectedSpear ~= "None" then
+            Window:Dialog({
+                Title = "You want to buy it?",
+                Content = "(if you already have this Spear, the money will be debited again)",
+                Buttons = {
+                    {
+                        Title = "Confirm",
+                        Callback = function()
+                            BuySpear(selectedSpear)
+                        end
+                    },
+                    {
+                        Title = "Cancel",
+                        Callback = function()
+                            print("Cancelled Buy Spear")
+                        end
+                    }
+                }
+            })
+        end
+    end
+})
+
+-- Merlin Section
+local MerlinSection = MarketTab:Section({
+    Title = "Merlin"
+})
+
+MerlinSection:Button({
+    Title = "Teleport To Merlin",
+    Description = "You need to teleport and talk to him to purchase further.",
+    Callback = function()
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-927.5850830078125, 223.70001220703125, -997.9788208007812)
+    end
+})
+
+local LuckAmount = MerlinSection:Input({
+    Title = "Luck Amount",
+    Default = "1",
+    Placeholder = "Enter amount",
+    Callback = function(Value) end
+})
+
+local function BuyMerlinLuck(Value)
+    for i = 1, Value do
+        local BuyLuckEvent = workspace.world.npcs.Merlin.Merlin:GetChildren()[9]
+        local arguments = {
+            [1] = {
+                --["npc"] = workspace.world.npcs.Merlin,
+                --["idle"] = workspace.world.npcs.Merlin.description.idle,
+                --["voice"] = workspace.world.npcs.Merlin.description.voice
+            }
+        }
+        
+        BuyLuckEvent:InvokeServer(unpack(arguments))
+    end
+end
+
+MerlinSection:Button({
+    Title = "Buy Luck",
+    Description = "",
+    Callback = function()
+        Window:Dialog({
+            Title = "You want to buy it?",
+            Content = "",
+            Buttons = {
+                {
+                    Title = "Confirm",
+                    Callback = function()
+                        BuyMerlinLuck(tonumber(LuckAmount.Value) or 1)
+                    end
+                },
+                {
+                    Title = "Cancel",
+                    Callback = function()
+                        print("Cancelled Buy Luck")
+                    end
+                }
+            }
+        })
+    end
+})
+
+local RelicAmount = MerlinSection:Input({
+    Title = "Relic Amount",
+    Default = "1",
+    Placeholder = "Enter amount",
+    Callback = function(Value) end
+})
+
+local function BuyMerlinRelick(Value)
+    local needValue = Value
+    
+    local remote0 = workspace.world.npcs.Merlin.Merlin:GetChildren()[3] --1 relic
+    local remote1 = workspace.world.npcs.Merlin.Merlin.buy2Relics --2 relic
+    local remote2 = workspace.world.npcs.Merlin.Merlin.buy5Relics --5 relic
+    local remote3 = workspace.world.npcs.Merlin.Merlin.buy10Relics --10 relic
+    local remote4 = workspace.world.npcs.Merlin.Merlin.buy25Relics --25 relic
+    local remote5 = workspace.world.npcs.Merlin.Merlin.buy50Relics --50 relic
+    
+    local arguments = {
+        [1] = {
+            --["npc"] = workspace.world.npcs.Merlin,
+            --["idle"] = workspace.world.npcs.Merlin.description.idle,
+            --["voice"] = 11
+        }
+    }
+    
+    local packages = {
+        {value = 50, remote = remote5},
+        {value = 25, remote = remote4},
+        {value = 10, remote = remote3},
+        {value = 5, remote = remote2},
+        {value = 2, remote = remote1},
+        {value = 1, remote = remote0}
+    }
+    
+    for _, package in ipairs(packages) do
+        while needValue >= package.value do
+            local results = package.remote:InvokeServer(unpack(arguments))
+            needValue = needValue - package.value
+            wait(0.1)
+        end
+    end
+    
+    return true
+end
+
+MerlinSection:Button({
+    Title = "Buy Relic",
+    Description = "",
+    Callback = function()
+        Window:Dialog({
+            Title = "You want to buy it?",
+            Content = "If you confirm the payment, it will be impossible to return the purchase.",
+            Buttons = {
+                {
+                    Title = "Confirm",
+                    Callback = function()
+                        BuyMerlinRelick(tonumber(RelicAmount.Value) or 1)
+                    end
+                },
+                {
+                    Title = "Cancel",
+                    Callback = function()
+                        print("Cancelled Buy Relic")
+                    end
+                }
+            }
+        })
+    end
+})
+
+-- */  About Tab  /* --
+local AboutTab = Window:Tab({
+    Title = "About eternal",
+    Icon = "info",
+})
+
+local AboutSection = AboutTab:Section({
+    Title = "About eternal",
+})
+
+AboutSection:Image({
+    Image = "https://repository-images.githubusercontent.com/880118829/428bedb1-dcbd-43d5-bc7f-3beb2e9e0177",
+    AspectRatio = "16:9",
+    Radius = 9,
+})
+
+AboutSection:Space({ Columns = 3 })
+
+AboutSection:Section({
+    Title = "What is eternal?",
+    TextSize = 24,
+    FontWeight = Enum.FontWeight.SemiBold,
+})
+
+AboutSection:Space()
+
+AboutSection:Section({
+    Title = [[eternal is a powerfull script to fisch game.]],
+    TextSize = 18,
+    TextTransparency = .35,
+    FontWeight = Enum.FontWeight.Medium,
+})
+
+AboutTab:Space({ Columns = 4 })
+
+AboutTab:Button({
+    Title = "Destroy Window",
+    Color = Color3.fromHex("#ff4830"),
+    Justify = "Center",
+    Icon = "shredder",
+    IconAlign = "Left",
+    Callback = function()
+        Window:Destroy()
+    end
+})
+
+print("eternal UI Loaded Successfully!")

@@ -1,1 +1,22 @@
-print("you pidor<3")
+local function ShowWarning()
+    print("\n")
+    print("┌" .. string.rep("─", 38) .. "┐")
+    print("│" .. string.rep(" ", 38) .. "│")
+    print("│           E T E R N A L           │")
+    print("│" .. string.rep(" ", 38) .. "│")
+    print("│    Preparing something special... │")
+    print("│" .. string.rep(" ", 38) .. "│")
+    print("└" .. string.rep("─", 38) .. "┘")
+    print("\n")
+    
+    -- Обратный отсчет
+    for i = 3, 1, -1 do
+        print(">>> " .. i .. " <<<")
+        wait(1)
+    end
+    
+    print(">>> ETERNAL IS HERE <<<")
+    wait(1)
+end
+
+ShowWarning()
